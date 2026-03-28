@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const { htmlToMarkdown, formatOutput } = require('../lib/formatter');
 const { buildSolutionUrl } = require('../lib/walkccc');
+const { parseArgs, renderWithGlow, isNetworkError } = require('../bin/dsa');
 
 let passed = 0;
 let failed = 0;
@@ -146,6 +147,59 @@ test('omits solution section when null', () => {
 test('handles empty topicTags gracefully', () => {
   const out = formatOutput({ ...fakeProblem, topicTags: [] }, null);
   assert.ok(out.includes('N/A'));
+});
+
+// ── CLI parsing & glow piping ─────────────────────────────────────────────────
+
+console.log('\ncli');
+
+test('parseArgs supports --difficulty=value format', () => {
+  const { opts, error } = parseArgs(['--difficulty=medium', '--no-solution']);
+  assert.equal(error, undefined);
+  assert.equal(opts.difficulty, 'medium');
+  assert.equal(opts.noSolution, true);
+});
+
+test('parseArgs supports --difficulty value format', () => {
+  const { opts, error } = parseArgs(['--difficulty', 'hard']);
+  assert.equal(error, undefined);
+  assert.equal(opts.difficulty, 'hard');
+});
+
+test('parseArgs rejects invalid difficulty', () => {
+  const { error } = parseArgs(['--difficulty=insane']);
+  assert.ok(error && error.includes('Invalid difficulty'));
+});
+
+test('parseArgs rejects unknown options', () => {
+  const { error } = parseArgs(['--wat']);
+  assert.ok(error && error.includes('Unknown option'));
+});
+
+test('parseArgs catches missing --difficulty value', () => {
+  const { error } = parseArgs(['--difficulty']);
+  assert.ok(error && error.includes('Missing value'));
+});
+
+test('renderWithGlow falls back when glow is missing', () => {
+  const fakeSpawn = () => ({ error: { code: 'ENOENT' } });
+  const result = renderWithGlow('# Hello', { spawn: fakeSpawn });
+  assert.equal(result.usedGlow, false);
+  assert.equal(result.output, '# Hello');
+  assert.ok(result.warning.includes('glow not found'));
+});
+
+test('renderWithGlow uses glow output on success', () => {
+  const fakeSpawn = () => ({ status: 0, stdout: 'rendered' });
+  const result = renderWithGlow('# Hello', { spawn: fakeSpawn });
+  assert.equal(result.usedGlow, true);
+  assert.equal(result.output, 'rendered');
+});
+
+test('isNetworkError detects fetch/network messages', () => {
+  assert.equal(isNetworkError(new Error('fetch failed')), true);
+  assert.equal(isNetworkError(new Error('ECONNRESET happened')), true);
+  assert.equal(isNetworkError(new Error('totally different error')), false);
 });
 
 // ── Summary ───────────────────────────────────────────────────────────────────

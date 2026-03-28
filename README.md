@@ -16,8 +16,10 @@ npm install -g termleet
 dsa                        # random problem + C++ solution
 dsa --difficulty=medium    # filter by difficulty (easy | medium | hard)
 dsa --no-solution          # show the problem only
-dsa | glow -               # pipe through glow for rendered markdown
 ```
+
+`dsa` now renders through `glow` internally (stdin piping).  
+If `glow` is not installed or fails, it gracefully falls back to printing raw markdown.
 
 The output is markdown-friendly:
 
