@@ -1,0 +1,154 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const { htmlToMarkdown, formatOutput } = require('../lib/formatter');
+const { buildSolutionUrl } = require('../lib/walkccc');
+
+let passed = 0;
+let failed = 0;
+
+function test(name, fn) {
+  try {
+    fn();
+    console.log(`  ✓ ${name}`);
+    passed++;
+  } catch (err) {
+    console.error(`  ✗ ${name}`);
+    console.error(`    ${err.message}`);
+    failed++;
+  }
+}
+
+// ── htmlToMarkdown ────────────────────────────────────────────────────────────
+
+console.log('\nhtmlToMarkdown');
+
+test('strips basic HTML tags', () => {
+  assert.equal(htmlToMarkdown('<p>Hello world</p>').trim(), 'Hello world');
+});
+
+test('decodes HTML entities', () => {
+  assert.ok(htmlToMarkdown('a &amp; b').includes('a & b'));
+  assert.ok(htmlToMarkdown('&lt;div&gt;').includes('<div>'));
+  assert.ok(htmlToMarkdown('<p>a&nbsp;b</p>').includes('a b'));
+});
+
+test('converts <strong> to bold markdown', () => {
+  assert.ok(htmlToMarkdown('<strong>bold</strong>').includes('**bold**'));
+});
+
+test('converts <em> to italic markdown', () => {
+  assert.ok(htmlToMarkdown('<em>italic</em>').includes('_italic_'));
+});
+
+test('converts <code> to inline code', () => {
+  assert.ok(htmlToMarkdown('<code>myVar</code>').includes('`myVar`'));
+});
+
+test('converts <pre> blocks to fenced code', () => {
+  const out = htmlToMarkdown('<pre>int x = 1;\nreturn x;</pre>');
+  assert.ok(out.includes('```'));
+  assert.ok(out.includes('int x = 1;'));
+});
+
+test('converts <ul>/<li> to markdown list', () => {
+  const out = htmlToMarkdown('<ul><li>Item A</li><li>Item B</li></ul>');
+  assert.ok(out.includes('- Item A'));
+  assert.ok(out.includes('- Item B'));
+});
+
+test('converts headings', () => {
+  assert.ok(htmlToMarkdown('<h2>Section</h2>').includes('## Section'));
+});
+
+test('collapses excessive newlines', () => {
+  const out = htmlToMarkdown('<p>A</p><p>B</p><p>C</p>');
+  assert.ok(!out.includes('\n\n\n'));
+});
+
+test('does not double-decode &amp;lt; (should stay &lt;)', () => {
+  // &amp;lt; represents the literal text "&lt;" – it should NOT become "<"
+  assert.ok(htmlToMarkdown('&amp;lt;').includes('&lt;'));
+  assert.ok(!htmlToMarkdown('&amp;lt;').includes('<'));
+});
+
+test('handles null/empty input', () => {
+  assert.equal(htmlToMarkdown(''), '');
+  assert.equal(htmlToMarkdown(null), '');
+});
+
+
+// ── buildSolutionUrl ──────────────────────────────────────────────────────────
+
+console.log('\nbuildSolutionUrl');
+
+test('encodes problem ID and title into correct URL', () => {
+  const url = buildSolutionUrl(1, 'Two Sum');
+  assert.equal(
+    url,
+    'https://raw.githubusercontent.com/walkccc/LeetCode/main/solutions/1.%20Two%20Sum/1.cpp',
+  );
+});
+
+test('encodes titles with special characters', () => {
+  const url = buildSolutionUrl(10, 'Regular Expression Matching');
+  assert.ok(url.includes('10.%20Regular%20Expression%20Matching'));
+  assert.ok(url.endsWith('/10.cpp'));
+});
+
+test('handles numeric id', () => {
+  const url = buildSolutionUrl(100, 'Same Tree');
+  assert.ok(url.includes('100.%20Same%20Tree'));
+});
+
+// ── formatOutput ──────────────────────────────────────────────────────────────
+
+console.log('\nformatOutput');
+
+const fakeProblem = {
+  questionId: '1',
+  title: 'Two Sum',
+  difficulty: 'Easy',
+  topicTags: [{ name: 'Array' }, { name: 'Hash Table' }],
+  content: '<p>Given an array of integers <code>nums</code>...</p>',
+};
+
+test('includes problem title and ID', () => {
+  const out = formatOutput(fakeProblem, null);
+  assert.ok(out.includes('Two Sum'));
+  assert.ok(out.includes('LC #1'));
+});
+
+test('includes difficulty and tags', () => {
+  const out = formatOutput(fakeProblem, null);
+  assert.ok(out.includes('Easy'));
+  assert.ok(out.includes('Array'));
+  assert.ok(out.includes('Hash Table'));
+});
+
+test('includes problem description', () => {
+  const out = formatOutput(fakeProblem, null);
+  assert.ok(out.includes('`nums`'));
+});
+
+test('includes C++ solution when provided', () => {
+  const out = formatOutput(fakeProblem, 'class Solution {};');
+  assert.ok(out.includes('```cpp'));
+  assert.ok(out.includes('class Solution {};'));
+});
+
+test('omits solution section when null', () => {
+  const out = formatOutput(fakeProblem, null);
+  assert.ok(!out.includes('```cpp'));
+  assert.ok(!out.includes('walkccc'));
+});
+
+test('handles empty topicTags gracefully', () => {
+  const out = formatOutput({ ...fakeProblem, topicTags: [] }, null);
+  assert.ok(out.includes('N/A'));
+});
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+
+console.log(`\n${passed} passed, ${failed} failed\n`);
+if (failed > 0) process.exit(1);

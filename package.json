@@ -1,0 +1,17 @@
+{
+  "name": "termleet",
+  "version": "1.0.0",
+  "description": "Print a random LeetCode problem with C++ solution directly in your terminal.",
+  "bin": {
+    "dsa": "./bin/dsa.js"
+  },
+  "scripts": {
+    "test": "node test/dsa.test.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["leetcode", "dsa", "cli", "terminal", "cpp"],
+  "author": "",
+  "license": "MIT"
+}
