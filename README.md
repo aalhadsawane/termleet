@@ -18,8 +18,9 @@ dsa --difficulty=medium    # filter by difficulty (easy | medium | hard)
 dsa --no-solution          # show the problem only
 ```
 
-`dsa` now renders through `glow` internally (stdin piping).  
-If `glow` is not installed or fails, it gracefully falls back to printing raw markdown.
+`dsa` renders markdown directly in terminal using:
+- [`marked-terminal`](https://www.npmjs.com/package/marked-terminal) for markdown structure
+- [`cli-highlight`](https://www.npmjs.com/package/cli-highlight) for C++ syntax highlighting
 
 The output is markdown-friendly:
 
@@ -45,6 +46,10 @@ class Solution {
 \`\`\`
 ```
 
+## Preview
+
+![termleet terminal output](https://github.com/user-attachments/assets/5fda78fc-d612-4cdb-88b6-a3f72d7825f4)
+
 ## How it works
 
 1. Fetches the full LeetCode problem list (`leetcode.com/api/problems/all/`).
@@ -52,7 +57,7 @@ class Solution {
 3. Retrieves full details (title, description, tags) via the LeetCode GraphQL API.
 4. Fetches the corresponding C++ solution from the [walkccc/LeetCode](https://github.com/walkccc/LeetCode) repository.
 5. If walkccc has no solution for the chosen problem, a different problem is tried automatically.
-6. Prints the result as clean Markdown.
+6. Renders markdown to styled terminal output.
 
 ## Development
 

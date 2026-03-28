@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const { htmlToMarkdown, formatOutput } = require('../lib/formatter');
 const { buildSolutionUrl } = require('../lib/walkccc');
-const { parseArgs, renderWithGlow, isNetworkError } = require('../bin/dsa');
+const { parseArgs, renderForTerminal, isNetworkError } = require('../bin/dsa');
 
 let passed = 0;
 let failed = 0;
@@ -149,7 +149,7 @@ test('handles empty topicTags gracefully', () => {
   assert.ok(out.includes('N/A'));
 });
 
-// ── CLI parsing & glow piping ─────────────────────────────────────────────────
+// ── CLI parsing & terminal rendering ───────────────────────────────────────────
 
 console.log('\ncli');
 
@@ -181,19 +181,9 @@ test('parseArgs catches missing --difficulty value', () => {
   assert.ok(error && error.includes('Missing value'));
 });
 
-test('renderWithGlow falls back when glow is missing', () => {
-  const fakeSpawn = () => ({ error: { code: 'ENOENT' } });
-  const result = renderWithGlow('# Hello', { spawn: fakeSpawn });
-  assert.equal(result.usedGlow, false);
-  assert.equal(result.output, '# Hello');
-  assert.ok(result.warning.includes('glow not found'));
-});
-
-test('renderWithGlow uses glow output on success', () => {
-  const fakeSpawn = () => ({ status: 0, stdout: 'rendered' });
-  const result = renderWithGlow('# Hello', { spawn: fakeSpawn });
-  assert.equal(result.usedGlow, true);
-  assert.equal(result.output, 'rendered');
+test('renderForTerminal uses marked parse output', () => {
+  const result = renderForTerminal('# Hello', { parse: () => 'rendered' });
+  assert.equal(result, 'rendered');
 });
 
 test('isNetworkError detects fetch/network messages', () => {

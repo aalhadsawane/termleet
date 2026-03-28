@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 
-const { spawnSync } = require('node:child_process');
+const { marked } = require('marked');
+const { markedTerminal } = require('marked-terminal');
 const { getProblemList, getProblemDetails } = require('../lib/leetcode');
 const { getSolution } = require('../lib/walkccc');
 const { formatOutput } = require('../lib/formatter');
@@ -25,6 +26,7 @@ Examples:
 
 const MAX_ATTEMPTS = 10;
 const VALID_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
+marked.use(markedTerminal({}, { language: 'cpp', ignoreIllegals: true }));
 
 function clearLine() {
   process.stderr.write('\r' + ' '.repeat(70) + '\r');
@@ -85,28 +87,8 @@ function isNetworkError(err) {
   );
 }
 
-function renderWithGlow(markdown, { spawn = spawnSync } = {}) {
-  const glow = spawn('glow', ['-'], {
-    input: markdown,
-    encoding: 'utf8',
-    maxBuffer: 1024 * 1024 * 10,
-  });
-
-  if (glow.error && glow.error.code === 'ENOENT') {
-    return { usedGlow: false, output: markdown, warning: 'glow not found; printing raw markdown.' };
-  }
-  if (glow.error) {
-    return { usedGlow: false, output: markdown, warning: `glow failed: ${glow.error.message}` };
-  }
-  if (glow.status !== 0) {
-    const stderr = (glow.stderr || '').trim();
-    return {
-      usedGlow: false,
-      output: markdown,
-      warning: stderr ? `glow exited with code ${glow.status}: ${stderr}` : `glow exited with code ${glow.status}`,
-    };
-  }
-  return { usedGlow: true, output: glow.stdout || '' };
+function renderForTerminal(markdown, { parse = marked.parse } = {}) {
+  return parse(markdown);
 }
 
 async function main() {
@@ -189,11 +171,7 @@ async function main() {
     }
 
     const markdown = formatOutput(problem, solution);
-    const rendered = renderWithGlow(markdown);
-    if (rendered.warning) {
-      console.error(`Warning: ${rendered.warning}`);
-    }
-    process.stdout.write(rendered.output);
+    process.stdout.write(renderForTerminal(markdown));
   } catch (err) {
     clearLine();
     if (isNetworkError(err)) {
@@ -211,4 +189,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, renderWithGlow, isNetworkError };
+module.exports = { parseArgs, renderForTerminal, isNetworkError };
