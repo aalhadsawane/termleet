@@ -7,6 +7,7 @@ const {
   parseArgs,
   renderForTerminal,
   isNetworkError,
+  isLeetCodeAccessError,
   pickRandomFromPool,
   getProblemSlug,
   buildProblemPool,
@@ -198,6 +199,13 @@ test('isNetworkError detects fetch/network messages', () => {
   assert.equal(isNetworkError(new Error('fetch failed')), true);
   assert.equal(isNetworkError(new Error('ECONNRESET happened')), true);
   assert.equal(isNetworkError(new Error('totally different error')), false);
+});
+
+test('isLeetCodeAccessError detects 403/429 responses', () => {
+  assert.equal(isLeetCodeAccessError({ statusCode: 403 }), true);
+  assert.equal(isLeetCodeAccessError({ statusCode: 429 }), true);
+  assert.equal(isLeetCodeAccessError({ statusCode: 500 }), false);
+  assert.equal(isLeetCodeAccessError(new Error('no status')), false);
 });
 
 test('pickRandomFromPool returns and removes a random item', () => {
