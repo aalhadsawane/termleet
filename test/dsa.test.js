@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const { htmlToMarkdown, formatOutput } = require('../lib/formatter');
 const { buildSolutionUrl } = require('../lib/walkccc');
-const { parseArgs, renderForTerminal, isNetworkError } = require('../bin/dsa');
+const { parseArgs, renderForTerminal, isNetworkError, pickRandomFromPool } = require('../bin/dsa');
 
 let passed = 0;
 let failed = 0;
@@ -190,6 +190,20 @@ test('isNetworkError detects fetch/network messages', () => {
   assert.equal(isNetworkError(new Error('fetch failed')), true);
   assert.equal(isNetworkError(new Error('ECONNRESET happened')), true);
   assert.equal(isNetworkError(new Error('totally different error')), false);
+});
+
+test('pickRandomFromPool returns and removes a random item', () => {
+  const pool = ['a', 'b', 'c'];
+  const picked = pickRandomFromPool(pool, () => 0.5); // index 1
+  assert.equal(picked, 'b');
+  assert.deepEqual(pool, ['a', 'c']);
+});
+
+test('pickRandomFromPool returns null for empty pools', () => {
+  const pool = [];
+  const picked = pickRandomFromPool(pool, () => 0);
+  assert.equal(picked, null);
+  assert.deepEqual(pool, []);
 });
 
 // ── Summary ───────────────────────────────────────────────────────────────────
