@@ -8,6 +8,11 @@
   "scripts": {
     "test": "node test/dsa.test.js"
   },
+  "files": [
+    "bin",
+    "lib",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },
@@ -18,7 +23,8 @@
     "terminal",
     "cpp"
   ],
-  "author": "",
+  "author": "Aalhad Sawane",
+  "private": false,
   "license": "MIT",
   "dependencies": {
     "cli-highlight": "^2.1.11",

@@ -204,6 +204,7 @@ test('isNetworkError detects fetch/network messages', () => {
 test('isLeetCodeAccessError detects 403/429 responses', () => {
   assert.equal(isLeetCodeAccessError({ statusCode: 403 }), true);
   assert.equal(isLeetCodeAccessError({ statusCode: 429 }), true);
+  assert.equal(isLeetCodeAccessError({ statusCode: 499 }), true);
   assert.equal(isLeetCodeAccessError({ statusCode: 500 }), false);
   assert.equal(isLeetCodeAccessError(new Error('no status')), false);
 });

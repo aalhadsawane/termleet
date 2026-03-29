@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('node:fs/promises');
-const os = require('node:os');
-const path = require('node:path');
 const { marked } = require('marked');
 const { markedTerminal } = require('marked-terminal');
 const { getProblemList, getProblemDetails } = require('../lib/leetcode');
@@ -28,7 +25,6 @@ Examples:
 `.trim();
 
 const MAX_ATTEMPTS = 10;
-const UNAVAILABLE_SLUGS_FILE = path.join(os.homedir(), '.termleet-unavailable-slugs.json');
 const VALID_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 marked.use(markedTerminal({}, { language: 'cpp', ignoreIllegals: true }));
 
@@ -93,12 +89,7 @@ function isNetworkError(err) {
 
 function isLeetCodeAccessError(err) {
   const statusCode = err && typeof err.statusCode === 'number' ? err.statusCode : 0;
-  return statusCode === 403 || statusCode === 429;
-}
-
-function debug(message) {
-  clearLine();
-  console.error(`[debug] ${message}`);
+  return statusCode === 403 || statusCode === 429 || statusCode === 499;
 }
 
 function renderForTerminal(markdown, { parse = marked.parse } = {}) {
@@ -128,20 +119,6 @@ function rememberUnavailableSlug(unavailableSlugs, slug) {
   return true;
 }
 
-async function loadUnavailableSlugs() {
-  try {
-    const content = await fs.readFile(UNAVAILABLE_SLUGS_FILE, 'utf8');
-    const slugs = JSON.parse(content);
-    return new Set(Array.isArray(slugs) ? slugs.filter((slug) => typeof slug === 'string' && slug) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-async function saveUnavailableSlugs(unavailableSlugs) {
-  await fs.writeFile(UNAVAILABLE_SLUGS_FILE, JSON.stringify(Array.from(unavailableSlugs), null, 2) + '\n');
-}
-
 async function main() {
   const args = process.argv.slice(2);
   const parsed = parseArgs(args);
@@ -162,11 +139,7 @@ async function main() {
   try {
     status('⏳ Fetching problem list…');
     const problems = await getProblemList({ difficulty: opts.difficulty });
-    const unavailableSlugs = await loadUnavailableSlugs();
-    debug(
-      `Problem list fetched: ${problems.length} free problems` +
-        `${opts.difficulty ? ` (difficulty=${opts.difficulty})` : ''}.`,
-    );
+    const unavailableSlugs = new Set();
 
     if (problems.length === 0) {
       clearLine();
@@ -179,18 +152,13 @@ async function main() {
     let solution = null;
     let detailFailures = 0;
     let solutionFailures = 0;
-    let unavailableSlugsChanged = false;
     let lastDetailErrorMessage = '';
 
     const pool = buildProblemPool(problems, unavailableSlugs);
-    debug(
-      `Sampling pool size: ${pool.length} (remembered unavailable slugs: ${unavailableSlugs.size}, noSolution=${opts.noSolution})`,
-    );
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS && pool.length > 0; attempt++) {
       const picked = pickRandomFromPool(pool);
       const slug = getProblemSlug(picked);
-      debug(`Attempt ${attempt + 1}/${MAX_ATTEMPTS}: selected slug "${slug || '<missing-slug>'}"`);
 
       status(`⏳ Fetching problem details… (attempt ${attempt + 1}/${MAX_ATTEMPTS})`);
 
@@ -200,14 +168,13 @@ async function main() {
       } catch (err) {
         detailFailures++;
         lastDetailErrorMessage = err && err.message ? err.message : String(err);
-        debug(`LeetCode detail fetch failed for "${slug || '<missing-slug>'}": ${lastDetailErrorMessage}`);
         if (isLeetCodeAccessError(err)) {
           throw new Error(
             `LeetCode rejected detail fetch (HTTP ${err.statusCode}). This can happen due to temporary rate limiting or access restrictions.`,
           );
         }
         if (!isNetworkError(err)) {
-          unavailableSlugsChanged = rememberUnavailableSlug(unavailableSlugs, slug) || unavailableSlugsChanged;
+          rememberUnavailableSlug(unavailableSlugs, slug);
         }
         if (isNetworkError(err) && detailFailures >= 2) {
           throw new Error(
@@ -218,8 +185,7 @@ async function main() {
       }
 
       if (!details || !details.content) {
-        debug(`LeetCode returned empty details/content for "${slug || '<missing-slug>'}".`);
-        unavailableSlugsChanged = rememberUnavailableSlug(unavailableSlugs, slug) || unavailableSlugsChanged;
+        rememberUnavailableSlug(unavailableSlugs, slug);
         continue;
       }
       fallbackProblem = details;
@@ -229,21 +195,15 @@ async function main() {
         solution = await getSolution(details.questionId, details.title);
         if (!solution) {
           solutionFailures++;
-          debug(`walkccc solution miss for #${details.questionId} "${details.title}". Retrying another problem.`);
           continue; // walkccc doesn't have this problem – retry
         }
       }
 
       problem = details;
-      debug(`Selected problem #${details.questionId} "${details.title}".`);
       break;
     }
 
     clearLine();
-
-    if (unavailableSlugsChanged) {
-      await saveUnavailableSlugs(unavailableSlugs);
-    }
 
     if (!problem && fallbackProblem && !opts.noSolution) {
       problem = fallbackProblem;
@@ -264,7 +224,6 @@ async function main() {
     process.stdout.write(renderForTerminal(markdown));
   } catch (err) {
     clearLine();
-    debug(`Fatal fetch error: ${err && err.message ? err.message : String(err)}`);
     if (isNetworkError(err)) {
       console.error(
         'Error: Network appears unavailable. Please check your internet connection and try again.',
