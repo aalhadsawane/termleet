@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
 const { marked } = require('marked');
 const { markedTerminal } = require('marked-terminal');
 const { getProblemList, getProblemDetails } = require('../lib/leetcode');
@@ -25,6 +28,7 @@ Examples:
 `.trim();
 
 const MAX_ATTEMPTS = 10;
+const UNAVAILABLE_SLUGS_FILE = path.join(os.homedir(), '.termleet-unavailable-slugs.json');
 const VALID_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 marked.use(markedTerminal({}, { language: 'cpp', ignoreIllegals: true }));
 
@@ -97,6 +101,37 @@ function pickRandomFromPool(pool, random = Math.random) {
   return pool.splice(index, 1)[0];
 }
 
+function getProblemSlug(problem) {
+  return problem && problem.stat && problem.stat.question__title_slug
+    ? problem.stat.question__title_slug
+    : '';
+}
+
+function buildProblemPool(problems, unavailableSlugs) {
+  const filtered = problems.filter((problem) => !unavailableSlugs.has(getProblemSlug(problem)));
+  return (filtered.length > 0 ? filtered : problems).slice();
+}
+
+function rememberUnavailableSlug(unavailableSlugs, slug) {
+  if (!slug || unavailableSlugs.has(slug)) return false;
+  unavailableSlugs.add(slug);
+  return true;
+}
+
+async function loadUnavailableSlugs() {
+  try {
+    const content = await fs.readFile(UNAVAILABLE_SLUGS_FILE, 'utf8');
+    const slugs = JSON.parse(content);
+    return new Set(Array.isArray(slugs) ? slugs.filter((slug) => typeof slug === 'string' && slug) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+async function saveUnavailableSlugs(unavailableSlugs) {
+  await fs.writeFile(UNAVAILABLE_SLUGS_FILE, JSON.stringify(Array.from(unavailableSlugs), null, 2) + '\n');
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const parsed = parseArgs(args);
@@ -117,6 +152,7 @@ async function main() {
   try {
     status('⏳ Fetching problem list…');
     const problems = await getProblemList({ difficulty: opts.difficulty });
+    const unavailableSlugs = await loadUnavailableSlugs();
 
     if (problems.length === 0) {
       clearLine();
@@ -129,12 +165,13 @@ async function main() {
     let solution = null;
     let detailFailures = 0;
     let solutionFailures = 0;
+    let unavailableSlugsChanged = false;
 
-    const pool = problems.slice();
+    const pool = buildProblemPool(problems, unavailableSlugs);
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS && pool.length > 0; attempt++) {
       const picked = pickRandomFromPool(pool);
-      const slug = picked.stat.question__title_slug;
+      const slug = getProblemSlug(picked);
 
       status(`⏳ Fetching problem details… (attempt ${attempt + 1}/${MAX_ATTEMPTS})`);
 
@@ -143,6 +180,9 @@ async function main() {
         details = await getProblemDetails(slug);
       } catch (err) {
         detailFailures++;
+        if (!isNetworkError(err)) {
+          unavailableSlugsChanged = rememberUnavailableSlug(unavailableSlugs, slug) || unavailableSlugsChanged;
+        }
         if (isNetworkError(err) && detailFailures >= 2) {
           throw new Error(
             'Network appears unavailable while fetching LeetCode data. Check your internet connection and try again.',
@@ -151,7 +191,10 @@ async function main() {
         continue;
       }
 
-      if (!details || !details.content) continue;
+      if (!details || !details.content) {
+        unavailableSlugsChanged = rememberUnavailableSlug(unavailableSlugs, slug) || unavailableSlugsChanged;
+        continue;
+      }
       fallbackProblem = details;
 
       if (!opts.noSolution) {
@@ -168,6 +211,10 @@ async function main() {
     }
 
     clearLine();
+
+    if (unavailableSlugsChanged) {
+      await saveUnavailableSlugs(unavailableSlugs);
+    }
 
     if (!problem && fallbackProblem && !opts.noSolution) {
       problem = fallbackProblem;
@@ -202,4 +249,12 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, renderForTerminal, isNetworkError, pickRandomFromPool };
+module.exports = {
+  parseArgs,
+  renderForTerminal,
+  isNetworkError,
+  pickRandomFromPool,
+  getProblemSlug,
+  buildProblemPool,
+  rememberUnavailableSlug,
+};
