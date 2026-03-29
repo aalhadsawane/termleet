@@ -3,7 +3,15 @@
 const assert = require('node:assert/strict');
 const { htmlToMarkdown, formatOutput } = require('../lib/formatter');
 const { buildSolutionUrl } = require('../lib/walkccc');
-const { parseArgs, renderForTerminal, isNetworkError, pickRandomFromPool } = require('../bin/dsa');
+const {
+  parseArgs,
+  renderForTerminal,
+  isNetworkError,
+  pickRandomFromPool,
+  getProblemSlug,
+  buildProblemPool,
+  rememberUnavailableSlug,
+} = require('../bin/dsa');
 
 let passed = 0;
 let failed = 0;
@@ -204,6 +212,33 @@ test('pickRandomFromPool returns null for empty pools', () => {
   const picked = pickRandomFromPool(pool, () => 0);
   assert.equal(picked, null);
   assert.deepEqual(pool, []);
+});
+
+test('getProblemSlug returns the question title slug', () => {
+  const problem = { stat: { question__title_slug: 'two-sum' } };
+  assert.equal(getProblemSlug(problem), 'two-sum');
+});
+
+test('buildProblemPool filters out remembered unavailable slugs', () => {
+  const problems = [
+    { stat: { question__title_slug: 'two-sum' } },
+    { stat: { question__title_slug: 'add-two-numbers' } },
+  ];
+  const pool = buildProblemPool(problems, new Set(['two-sum']));
+  assert.deepEqual(pool, [{ stat: { question__title_slug: 'add-two-numbers' } }]);
+});
+
+test('buildProblemPool falls back to full list when all are unavailable', () => {
+  const problems = [{ stat: { question__title_slug: 'two-sum' } }];
+  const pool = buildProblemPool(problems, new Set(['two-sum']));
+  assert.deepEqual(pool, problems);
+});
+
+test('rememberUnavailableSlug adds new slugs only once', () => {
+  const unavailable = new Set();
+  assert.equal(rememberUnavailableSlug(unavailable, 'two-sum'), true);
+  assert.equal(rememberUnavailableSlug(unavailable, 'two-sum'), false);
+  assert.deepEqual(Array.from(unavailable), ['two-sum']);
 });
 
 // ── Summary ───────────────────────────────────────────────────────────────────
