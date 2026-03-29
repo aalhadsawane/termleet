@@ -92,11 +92,6 @@ function isLeetCodeAccessError(err) {
   return statusCode === 403 || statusCode === 429 || statusCode === 499;
 }
 
-function debug(message) {
-  clearLine();
-  console.error(`[debug] ${message}`);
-}
-
 function renderForTerminal(markdown, { parse = marked.parse } = {}) {
   return parse(markdown);
 }
@@ -145,10 +140,6 @@ async function main() {
     status('⏳ Fetching problem list…');
     const problems = await getProblemList({ difficulty: opts.difficulty });
     const unavailableSlugs = new Set();
-    debug(
-      `Problem list fetched: ${problems.length} free problems` +
-        `${opts.difficulty ? ` (difficulty=${opts.difficulty})` : ''}.`,
-    );
 
     if (problems.length === 0) {
       clearLine();
@@ -164,14 +155,10 @@ async function main() {
     let lastDetailErrorMessage = '';
 
     const pool = buildProblemPool(problems, unavailableSlugs);
-    debug(
-      `Sampling pool size: ${pool.length} (remembered unavailable slugs: ${unavailableSlugs.size}, noSolution=${opts.noSolution})`,
-    );
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS && pool.length > 0; attempt++) {
       const picked = pickRandomFromPool(pool);
       const slug = getProblemSlug(picked);
-      debug(`Attempt ${attempt + 1}/${MAX_ATTEMPTS}: selected slug "${slug || '<missing-slug>'}"`);
 
       status(`⏳ Fetching problem details… (attempt ${attempt + 1}/${MAX_ATTEMPTS})`);
 
@@ -181,7 +168,6 @@ async function main() {
       } catch (err) {
         detailFailures++;
         lastDetailErrorMessage = err && err.message ? err.message : String(err);
-        debug(`LeetCode detail fetch failed for "${slug || '<missing-slug>'}": ${lastDetailErrorMessage}`);
         if (isLeetCodeAccessError(err)) {
           throw new Error(
             `LeetCode rejected detail fetch (HTTP ${err.statusCode}). This can happen due to temporary rate limiting or access restrictions.`,
@@ -199,7 +185,6 @@ async function main() {
       }
 
       if (!details || !details.content) {
-        debug(`LeetCode returned empty details/content for "${slug || '<missing-slug>'}".`);
         rememberUnavailableSlug(unavailableSlugs, slug);
         continue;
       }
@@ -210,13 +195,11 @@ async function main() {
         solution = await getSolution(details.questionId, details.title);
         if (!solution) {
           solutionFailures++;
-          debug(`walkccc solution miss for #${details.questionId} "${details.title}". Retrying another problem.`);
           continue; // walkccc doesn't have this problem – retry
         }
       }
 
       problem = details;
-      debug(`Selected problem #${details.questionId} "${details.title}".`);
       break;
     }
 
@@ -241,7 +224,6 @@ async function main() {
     process.stdout.write(renderForTerminal(markdown));
   } catch (err) {
     clearLine();
-    debug(`Fatal fetch error: ${err && err.message ? err.message : String(err)}`);
     if (isNetworkError(err)) {
       console.error(
         'Error: Network appears unavailable. Please check your internet connection and try again.',

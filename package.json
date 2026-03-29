@@ -18,7 +18,8 @@
     "terminal",
     "cpp"
   ],
-  "author": "",
+  "author": "Aalhad Sawane",
+  "private": false,
   "license": "MIT",
   "dependencies": {
     "cli-highlight": "^2.1.11",

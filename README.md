@@ -75,8 +75,6 @@ class Solution {
 6. During retries, unavailable slugs are tracked only in-memory for the current run (no local persistence file).
 7. Renders markdown to styled terminal output.
 
-During fetch/retry, `dsa` prints `[debug]` lines to stderr with attempt, selected slug, and failure reasons so you can quickly identify where requests are failing.
-
 ## Development
 
 ```bash
