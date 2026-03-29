@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('node:fs/promises');
-const os = require('node:os');
-const path = require('node:path');
 const { marked } = require('marked');
 const { markedTerminal } = require('marked-terminal');
 const { getProblemList, getProblemDetails } = require('../lib/leetcode');
@@ -28,7 +25,6 @@ Examples:
 `.trim();
 
 const MAX_ATTEMPTS = 10;
-const UNAVAILABLE_SLUGS_FILE = path.join(os.homedir(), '.termleet-unavailable-slugs.json');
 const VALID_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 marked.use(markedTerminal({}, { language: 'cpp', ignoreIllegals: true }));
 
@@ -93,7 +89,7 @@ function isNetworkError(err) {
 
 function isLeetCodeAccessError(err) {
   const statusCode = err && typeof err.statusCode === 'number' ? err.statusCode : 0;
-  return statusCode === 403 || statusCode === 429;
+  return statusCode === 403 || statusCode === 429 || statusCode === 499;
 }
 
 function debug(message) {
@@ -128,20 +124,6 @@ function rememberUnavailableSlug(unavailableSlugs, slug) {
   return true;
 }
 
-async function loadUnavailableSlugs() {
-  try {
-    const content = await fs.readFile(UNAVAILABLE_SLUGS_FILE, 'utf8');
-    const slugs = JSON.parse(content);
-    return new Set(Array.isArray(slugs) ? slugs.filter((slug) => typeof slug === 'string' && slug) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-async function saveUnavailableSlugs(unavailableSlugs) {
-  await fs.writeFile(UNAVAILABLE_SLUGS_FILE, JSON.stringify(Array.from(unavailableSlugs), null, 2) + '\n');
-}
-
 async function main() {
   const args = process.argv.slice(2);
   const parsed = parseArgs(args);
@@ -162,7 +144,7 @@ async function main() {
   try {
     status('⏳ Fetching problem list…');
     const problems = await getProblemList({ difficulty: opts.difficulty });
-    const unavailableSlugs = await loadUnavailableSlugs();
+    const unavailableSlugs = new Set();
     debug(
       `Problem list fetched: ${problems.length} free problems` +
         `${opts.difficulty ? ` (difficulty=${opts.difficulty})` : ''}.`,
@@ -179,7 +161,6 @@ async function main() {
     let solution = null;
     let detailFailures = 0;
     let solutionFailures = 0;
-    let unavailableSlugsChanged = false;
     let lastDetailErrorMessage = '';
 
     const pool = buildProblemPool(problems, unavailableSlugs);
@@ -207,7 +188,7 @@ async function main() {
           );
         }
         if (!isNetworkError(err)) {
-          unavailableSlugsChanged = rememberUnavailableSlug(unavailableSlugs, slug) || unavailableSlugsChanged;
+          rememberUnavailableSlug(unavailableSlugs, slug);
         }
         if (isNetworkError(err) && detailFailures >= 2) {
           throw new Error(
@@ -219,7 +200,7 @@ async function main() {
 
       if (!details || !details.content) {
         debug(`LeetCode returned empty details/content for "${slug || '<missing-slug>'}".`);
-        unavailableSlugsChanged = rememberUnavailableSlug(unavailableSlugs, slug) || unavailableSlugsChanged;
+        rememberUnavailableSlug(unavailableSlugs, slug);
         continue;
       }
       fallbackProblem = details;
@@ -240,10 +221,6 @@ async function main() {
     }
 
     clearLine();
-
-    if (unavailableSlugsChanged) {
-      await saveUnavailableSlugs(unavailableSlugs);
-    }
 
     if (!problem && fallbackProblem && !opts.noSolution) {
       problem = fallbackProblem;

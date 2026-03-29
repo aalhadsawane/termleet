@@ -72,7 +72,8 @@ class Solution {
    - If GraphQL is blocked/rate-limited/unavailable, falls back to the public problem page (`/problems/<slug>/description/`) and extracts description data from embedded JSON.
 4. Fetches the corresponding C++ solution from the [walkccc/LeetCode](https://github.com/walkccc/LeetCode) repository.
 5. If walkccc has no solution for the chosen problem, a different problem is tried automatically.
-6. Renders markdown to styled terminal output.
+6. During retries, unavailable slugs are tracked only in-memory for the current run (no local persistence file).
+7. Renders markdown to styled terminal output.
 
 During fetch/retry, `dsa` prints `[debug]` lines to stderr with attempt, selected slug, and failure reasons so you can quickly identify where requests are failing.
 
