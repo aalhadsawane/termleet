@@ -10,6 +10,17 @@ npm install -g termleet
 
 > Requires Node.js 18 or later.
 
+### Run locally during development
+
+```bash
+# from repository root
+npm install
+npm install -g .
+
+# run the globally linked CLI
+dsa
+```
+
 ## Usage
 
 ```bash
@@ -17,6 +28,8 @@ dsa                        # random problem + C++ solution
 dsa --difficulty=medium    # filter by difficulty (easy | medium | hard)
 dsa --no-solution          # show the problem only
 ```
+
+If `dsa` can't find a walkccc solution after several attempts, it now falls back to showing a LeetCode problem without the solution block so you can continue practicing.
 
 `dsa` renders markdown directly in terminal using:
 - [`marked-terminal`](https://www.npmjs.com/package/marked-terminal) for markdown structure

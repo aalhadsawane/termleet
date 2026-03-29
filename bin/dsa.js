@@ -91,6 +91,12 @@ function renderForTerminal(markdown, { parse = marked.parse } = {}) {
   return parse(markdown);
 }
 
+function pickRandomFromPool(pool, random = Math.random) {
+  if (!pool.length) return null;
+  const index = Math.floor(random() * pool.length);
+  return pool.splice(index, 1)[0];
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const parsed = parseArgs(args);
@@ -119,14 +125,15 @@ async function main() {
     }
 
     let problem = null;
+    let fallbackProblem = null;
     let solution = null;
     let detailFailures = 0;
     let solutionFailures = 0;
 
     const pool = problems.slice();
 
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const picked = pool[Math.floor(Math.random() * pool.length)];
+    for (let attempt = 0; attempt < MAX_ATTEMPTS && pool.length > 0; attempt++) {
+      const picked = pickRandomFromPool(pool);
       const slug = picked.stat.question__title_slug;
 
       status(`⏳ Fetching problem details… (attempt ${attempt + 1}/${MAX_ATTEMPTS})`);
@@ -145,6 +152,7 @@ async function main() {
       }
 
       if (!details || !details.content) continue;
+      fallbackProblem = details;
 
       if (!opts.noSolution) {
         status('⏳ Fetching walkccc solution…');
@@ -160,6 +168,11 @@ async function main() {
     }
 
     clearLine();
+
+    if (!problem && fallbackProblem && !opts.noSolution) {
+      problem = fallbackProblem;
+      console.error('Note: walkccc solution not found for sampled problems. Showing problem only.');
+    }
 
     if (!problem) {
       console.error(
@@ -189,4 +202,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, renderForTerminal, isNetworkError };
+module.exports = { parseArgs, renderForTerminal, isNetworkError, pickRandomFromPool };
