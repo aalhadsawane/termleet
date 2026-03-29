@@ -8,6 +8,11 @@
   "scripts": {
     "test": "node test/dsa.test.js"
   },
+  "files": [
+    "bin",
+    "lib",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },
