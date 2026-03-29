@@ -264,6 +264,7 @@ async function main() {
     process.stdout.write(renderForTerminal(markdown));
   } catch (err) {
     clearLine();
+    debug(`Fatal fetch error: ${err && err.message ? err.message : String(err)}`);
     if (isNetworkError(err)) {
       console.error(
         'Error: Network appears unavailable. Please check your internet connection and try again.',
